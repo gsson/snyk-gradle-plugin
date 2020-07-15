@@ -10,6 +10,7 @@ import { legacyCommon, legacyPlugin as api } from '@snyk/cli-interface';
 import * as javaCallGraphBuilder from '@snyk/java-call-graph-builder';
 import { getGradleAttributesPretty } from './gradle-attributes-pretty';
 import debugModule = require('debug');
+import { writeContentsToFileSwallowingErrors } from './write-to-file';
 
 type ScannedProject = legacyCommon.ScannedProject;
 type CallGraph = legacyCommon.CallGraph;
@@ -459,8 +460,9 @@ function getVersionBuildInfo(
   gradleVersionOutput: string,
 ): VersionBuildInfo | undefined {
   try {
-    const cleanedVersionOutput: string =
-      cleanupVersionOutput(gradleVersionOutput);
+    const cleanedVersionOutput: string = cleanupVersionOutput(
+      gradleVersionOutput,
+    );
 
     if (cleanedVersionOutput !== '') {
       const gradleOutputArray = cleanedVersionOutput.split(/\r\n|\r|\n/);
@@ -475,8 +477,9 @@ function getVersionBuildInfo(
         .map((value) => value.split(/(.*): (.*)/))
         .forEach(
           (splitValue) =>
-            (metaBuildVersion[toCamelCase(splitValue[1].trim())] =
-              splitValue[2].trim()),
+            (metaBuildVersion[
+              toCamelCase(splitValue[1].trim())
+            ] = splitValue[2].trim()),
         );
       return {
         gradleVersion,
@@ -621,6 +624,12 @@ export async function processProjectsInExtractedJSON(
   root: string,
   extractedJSON: JsonDepsScriptResult,
 ) {
+  // write extracted json to file
+  logger(`Writing full JSON to snyk-gradle.json file`);
+  writeContentsToFileSwallowingErrors(
+    'snyk-gradle.json',
+    JSON.stringify(extractedJSON),
+  );
   for (const projectId in extractedJSON.projects) {
     const { defaultProject } = extractedJSON;
     const { snykGraph, projectVersion } = extractedJSON.projects[projectId];
@@ -641,11 +650,17 @@ export async function processProjectsInExtractedJSON(
         : `${defaultProject}/${projectId}`;
     }
 
-    extractedJSON.projects[projectId].depGraph = await buildGraph(
-      snykGraph,
-      projectName,
-      projectVersion,
+    const graph = await buildGraph(snykGraph, projectName, projectVersion);
+
+    logger(
+      `Writing ${projectId} graph to snyk-gradle-${projectId}-graph.json file`,
     );
+    writeContentsToFileSwallowingErrors(
+      `snyk-gradle-${projectId}-graph.json`,
+      JSON.stringify(graph.toJSON()),
+    );
+
+    extractedJSON.projects[projectId].depGraph = graph;
     // this property usage ends here
     delete extractedJSON.projects[projectId].snykGraph;
   }
