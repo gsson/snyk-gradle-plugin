@@ -5,12 +5,12 @@ import * as subProcess from './sub-process';
 import * as tmp from 'tmp';
 import { MissingSubProjectError } from './errors';
 import * as chalk from 'chalk';
-import { DepGraphBuilder, PkgManager, DepGraph } from '@snyk/dep-graph';
+import { DepGraph, DepGraphBuilder, PkgManager } from '@snyk/dep-graph';
 import { legacyCommon, legacyPlugin as api } from '@snyk/cli-interface';
 import * as javaCallGraphBuilder from '@snyk/java-call-graph-builder';
-import debugModule = require('debug');
 import { findCycles } from './find-cycles';
 import { getGradleAttributesPretty } from './gradle-attributes-pretty';
+import debugModule = require('debug');
 
 type ScannedProject = legacyCommon.ScannedProject;
 type CallGraph = legacyCommon.CallGraph;
@@ -118,7 +118,7 @@ export async function inspect(
   let initScriptPath: string | undefined;
 
   if (options.initScript) {
-    initScriptPath = options.initScript;
+    initScriptPath = formatArgWithWhiteSpace(path.resolve(options.initScript));
   }
 
   if (options.reachableVulns) {
@@ -695,7 +695,7 @@ function getCommand(root: string, targetFile: string) {
   return 'gradle';
 }
 
-function formatArgWithWhiteSpace(arg: string): string {
+export function formatArgWithWhiteSpace(arg: string): string {
   if (/\s/.test(arg)) {
     return quot + arg + quot;
   }
@@ -758,10 +758,7 @@ function buildArgs(
   }
 
   if (initScriptPath) {
-    const formattedInitScriptPath = formatArgWithWhiteSpace(
-      path.resolve(initScriptPath),
-    );
-    args.push('-I ' + formattedInitScriptPath);
+    args.push('-I ' + initScriptPath);
   }
 
   // There might be a legacy --configuration option in 'args'.
