@@ -138,6 +138,15 @@ def configsSuccessfullyResolved(configurations) {
     return resolvedConfigurations;
 }
 
+// Generate a project id based on the project name if it's the root project
+// or the project path if it's a sub-project.
+//
+// There should be no risk of collision since the root project name can not
+// start with ":", and sub-project paths will always start with ":".
+def projectId(project) {
+    return project.depth == 0 ? project.name : project.path
+}
+
 // We are attaching this task to every project, as this is the only reliable way to run it
 // when we start with a subproject build.gradle. As a consequence, we need to make sure we
 // only ever run it once, for the "starting" project.
@@ -184,7 +193,7 @@ allprojects { everyProj ->
                 def allSubProjectNames = []
                 allprojects.each { project -> 
                     if(project.name != defaultProjectName) { 
-                        allSubProjectNames.add(project.name) 
+                        allSubProjectNames.add(projectId(project)) 
                     } 
                 }
                 def result = [
@@ -281,13 +290,13 @@ allprojects { everyProj ->
                         println('SNYKECHO resolving configuration ' + projectConfigs.name)
                         def gradleFirstLevelDeps = projectConfigs.resolvedConfiguration.firstLevelModuleDependencies.findAll({ it.size() > 0 })
                         println('SNYKECHO converting gradle graph to snyk-graph format')
-                        projectsDict[proj.name] = [
+                        projectsDict[projectId(proj)] = [
                             'targetFile': findProject(proj.path).buildFile.toString(),
                             'snykGraph': getSnykGraph(gradleFirstLevelDeps),
                             'projectVersion': proj.version.toString()
                         ]
                     } else {
-                        projectsDict[proj.name] = [
+                        projectsDict[projectId(proj)] = [
                             'targetFile': findProject(proj.path).buildFile.toString()
                         ]
                     }
